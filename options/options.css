@@ -63,6 +63,20 @@ input:focus {
   flex: 1;
 }
 
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
 button {
   height: 40px;
   padding: 0 14px;
@@ -80,7 +94,7 @@ button:hover {
 
 .save {
   width: 100%;
-  margin-top: 28px;
+  margin-top: 18px;
   border-color: #1d4ed8;
   background: #2563eb;
   color: #fff;

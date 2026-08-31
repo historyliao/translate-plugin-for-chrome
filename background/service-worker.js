@@ -4,23 +4,58 @@ chrome.action.onClicked.addListener(() => {
   chrome.runtime.openOptionsPage();
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message || message.type !== "translate") {
-    return false;
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== "translation") {
+    return;
   }
 
-  translate(message.text)
-    .then((translation) => sendResponse({ ok: true, translation }))
-    .catch((error) => sendResponse({ ok: false, error: toUserError(error) }));
+  const controller = new AbortController();
+  let started = false;
+  let disconnected = false;
+  let finished = false;
 
-  return true;
+  port.onDisconnect.addListener(() => {
+    disconnected = true;
+    if (!finished) {
+      controller.abort();
+    }
+  });
+
+  port.onMessage.addListener((message) => {
+    if (started || !message || message.type !== "translate") {
+      return;
+    }
+    started = true;
+
+    translate(message.text, controller, (content) => {
+      if (disconnected || !postToPort(port, { type: "chunk", content })) {
+        controller.abort();
+        throw new Error("CANCELED");
+      }
+    })
+      .then(() => {
+        if (!disconnected) {
+          finished = true;
+          postToPort(port, { type: "done" });
+        }
+      })
+      .catch((error) => {
+        if (disconnected || error.message === "CANCELED") {
+          console.debug("Translation request canceled");
+          return;
+        }
+        finished = true;
+        postToPort(port, { type: "error", error: toUserError(error) });
+      });
+  });
 });
 
-async function translate(text) {
-  const { baseUrl, token, model } = await chrome.storage.local.get([
+async function translate(text, controller, onChunk) {
+  const { baseUrl, token, model, streamEnabled } = await chrome.storage.local.get([
     "baseUrl",
     "token",
-    "model"
+    "model",
+    "streamEnabled"
   ]);
 
   if (!baseUrl || !token || !model) {
@@ -28,8 +63,16 @@ async function translate(text) {
   }
 
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let timedOut = false;
+  let timeoutId;
+  const resetTimeout = () => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, REQUEST_TIMEOUT_MS);
+  };
+  resetTimeout();
 
   try {
     const response = await fetch(`${normalizedBaseUrl}/chat/completions`, {
@@ -40,7 +83,7 @@ async function translate(text) {
       },
       body: JSON.stringify({
         model,
-        stream: false,
+        stream: streamEnabled === true,
         temperature: 0,
         messages: [
           {
@@ -62,16 +105,19 @@ async function translate(text) {
       throw error;
     }
 
-    const data = await response.json();
-    const translation = data?.choices?.[0]?.message?.content;
-    if (typeof translation !== "string" || !translation.trim()) {
-      throw new Error("INVALID_RESPONSE");
+    if (streamEnabled === true) {
+      await readStreamingResponse(response, onChunk, resetTimeout);
+    } else {
+      const data = await response.json();
+      const translation = data?.choices?.[0]?.message?.content;
+      if (typeof translation !== "string" || !translation.trim()) {
+        throw new Error("INVALID_RESPONSE");
+      }
+      onChunk(translation.trim());
     }
-
-    return translation.trim();
   } catch (error) {
     if (error.name === "AbortError") {
-      throw new Error("TIMEOUT");
+      throw new Error(timedOut ? "TIMEOUT" : "CANCELED");
     }
     if (error instanceof TypeError) {
       throw new Error("NETWORK");
@@ -79,6 +125,100 @@ async function translate(text) {
     throw error;
   } finally {
     clearTimeout(timeoutId);
+  }
+}
+
+async function readStreamingResponse(response, onChunk, resetTimeout) {
+  if (!response.body) {
+    throw new Error("INVALID_RESPONSE");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let receivedContent = false;
+  let completed = false;
+
+  const handleLine = (line) => {
+    const event = parseStreamLine(line);
+    if (!event) {
+      return;
+    }
+    if (event.done) {
+      completed = true;
+      return;
+    }
+    receivedContent = true;
+    resetTimeout();
+    onChunk(event.content);
+  };
+
+  while (!completed) {
+    const { value, done } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop();
+    for (const line of lines) {
+      handleLine(line);
+      if (completed) {
+        break;
+      }
+    }
+  }
+
+  if (completed) {
+    await reader.cancel();
+  } else {
+    buffer += decoder.decode();
+    if (buffer) {
+      handleLine(buffer);
+    }
+  }
+
+  if (!receivedContent) {
+    throw new Error("INVALID_RESPONSE");
+  }
+  if (!completed) {
+    throw new Error("STREAM_INTERRUPTED");
+  }
+}
+
+function parseStreamLine(line) {
+  if (!line.startsWith("data:")) {
+    return null;
+  }
+
+  const data = line.slice(5).trim();
+  if (!data) {
+    return null;
+  }
+  if (data === "[DONE]") {
+    return { done: true };
+  }
+
+  let event;
+  try {
+    event = JSON.parse(data);
+  } catch {
+    throw new Error("INVALID_STREAM");
+  }
+
+  const content = event?.choices?.[0]?.delta?.content;
+  return typeof content === "string" && content
+    ? { done: false, content }
+    : null;
+}
+
+function postToPort(port, message) {
+  try {
+    port.postMessage(message);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -118,6 +258,10 @@ function toUserError(error) {
       return "无法连接翻译服务，请检查 Base URL";
     case "INVALID_RESPONSE":
       return "翻译服务返回了无效结果";
+    case "INVALID_STREAM":
+      return "翻译服务返回了无效流数据";
+    case "STREAM_INTERRUPTED":
+      return "翻译服务连接已中断";
     default:
       return error.message.startsWith("HTTP_")
         ? `翻译服务请求失败（${error.message.slice(5)}）`

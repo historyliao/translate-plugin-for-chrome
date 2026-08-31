@@ -11,11 +11,12 @@
 
 ## 配置
 
-填写以下三项并保存：
+填写翻译服务配置并保存：
 
 - `Base URL`：OpenAI-compatible API 的版本根地址，例如 `https://api.openai.com/v1`。
 - `Token`：API 访问令牌。
 - `Model`：模型名称，例如服务商提供的模型标识。
+- `启用流式响应`：可选，默认关闭；开启后译文会随模型输出逐步显示，API 服务需支持 Chat Completions SSE 响应。
 
 Token 只保存在 Chrome 的 `storage.local` 中，由后台 Service Worker 读取，不会注入网页内容。
 
@@ -23,7 +24,20 @@ Token 只保存在 Chrome 的 `storage.local` 中，由后台 Service Worker 读
 
 在任意普通 HTTP/HTTPS 网页中选中包含英文字母的文本，插件会自动请求配置的大模型 API，并在选区附近显示中文译文。点击浮层外的页面区域即可关闭浮层。
 
-首版不处理 Chrome 内部页面、Chrome Web Store、`input`/`textarea` 选区，也不提供流式输出和翻译历史。
+插件不处理 Chrome 内部页面、Chrome Web Store、`input`/`textarea` 选区，也不提供翻译历史。
+
+## 升级插件
+
+如果插件目录是通过 Git 克隆的，在项目目录中更新代码：
+
+```bash
+git switch main
+git pull --ff-only origin main
+```
+
+然后打开 `chrome://extensions`，找到本插件并点击“重新加载”。最后刷新已经打开的网页，使新版内容脚本生效。保存在 Chrome `storage.local` 中的翻译服务配置会继续保留。
+
+如果插件目录不是 Git 仓库，请用新版本文件完整覆盖原目录，再到 `chrome://extensions` 中重新加载插件。插件加载期间不要删除或移动该目录。
 
 ## License
 

@@ -2,6 +2,7 @@ const form = document.querySelector("#settings-form");
 const baseUrlInput = document.querySelector("#base-url");
 const tokenInput = document.querySelector("#token");
 const modelInput = document.querySelector("#model");
+const streamEnabledInput = document.querySelector("#stream-enabled");
 const status = document.querySelector("#status");
 const toggleToken = document.querySelector("#toggle-token");
 let tokenConfigured = false;
@@ -30,7 +31,11 @@ form.addEventListener("submit", async (event) => {
     return;
   }
 
-  const values = { baseUrl, model };
+  const values = {
+    baseUrl,
+    model,
+    streamEnabled: streamEnabledInput.checked
+  };
   if (token) {
     values.token = token;
     values.tokenConfigured = true;
@@ -48,9 +53,15 @@ toggleToken.addEventListener("click", () => {
 });
 
 async function loadSettings() {
-  const settings = await chrome.storage.local.get(["baseUrl", "model", "tokenConfigured"]);
+  const settings = await chrome.storage.local.get([
+    "baseUrl",
+    "model",
+    "streamEnabled",
+    "tokenConfigured"
+  ]);
   baseUrlInput.value = settings.baseUrl || "";
   modelInput.value = settings.model || "";
+  streamEnabledInput.checked = settings.streamEnabled === true;
   tokenConfigured = settings.tokenConfigured === true;
 }
 
