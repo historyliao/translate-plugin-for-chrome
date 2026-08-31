@@ -1,0 +1,1 @@
+# translate-plugin-for-chrome
