@@ -3,11 +3,14 @@
   let shadowRoot = null;
   let requestId = 0;
   let anchorRange = null;
+  let translationPort = null;
+  let translationContent = "";
 
   document.addEventListener("mousedown", handleMouseDown, true);
   document.addEventListener("mouseup", handleMouseUp, true);
   window.addEventListener("scroll", repositionOverlay, true);
   window.addEventListener("resize", repositionOverlay);
+  window.addEventListener("pagehide", cancelTranslation);
 
   function handleMouseDown(event) {
     if (!overlayHost || overlayHost.contains(event.target)) {
@@ -46,26 +49,56 @@
     }
 
     anchorRange = range.cloneRange();
+    cancelTranslation();
+    translationContent = "";
     const currentRequestId = ++requestId;
     showOverlay("翻译中…");
 
-    chrome.runtime.sendMessage({ type: "translate", text }, (response) => {
-      if (currentRequestId !== requestId || !overlayHost) {
+    const port = chrome.runtime.connect({ name: "translation" });
+    translationPort = port;
+
+    port.onMessage.addListener((message) => {
+      if (
+        currentRequestId !== requestId ||
+        translationPort !== port ||
+        !overlayHost
+      ) {
         return;
       }
-      if (chrome.runtime.lastError) {
-        showOverlay("翻译服务请求失败，请稍后重试", true);
-        return;
+
+      if (message?.type === "chunk" && typeof message.content === "string") {
+        translationContent += message.content;
+        showOverlay(translationContent);
+      } else if (message?.type === "done") {
+        translationPort = null;
+        port.disconnect();
+      } else if (message?.type === "error") {
+        const error = message.error || "翻译服务请求失败，请稍后重试";
+        translationPort = null;
+        port.disconnect();
+        showTranslationError(error);
       }
-      if (!response?.ok) {
-        showOverlay(response?.error || "翻译服务请求失败，请稍后重试", true);
-        return;
-      }
-      showOverlay(response.translation);
     });
+
+    port.onDisconnect.addListener(() => {
+      void chrome.runtime.lastError;
+      if (currentRequestId !== requestId || translationPort !== port) {
+        return;
+      }
+      translationPort = null;
+      showTranslationError("翻译服务连接已中断");
+    });
+
+    try {
+      port.postMessage({ type: "translate", text });
+    } catch {
+      translationPort = null;
+      port.disconnect();
+      showTranslationError("翻译服务请求失败，请重新加载插件和当前页面");
+    }
   }
 
-  function showOverlay(content, isError = false) {
+  function showOverlay(content, isError = false, interruption = "") {
     if (!overlayHost) {
       overlayHost = document.createElement("div");
       overlayHost.setAttribute("data-english-to-chinese-translator", "");
@@ -96,10 +129,28 @@
         }
         .loading { color: #4b5563; }
         .error { color: #b91c1c; }
+        .interruption {
+          display: block;
+          margin-top: 8px;
+          padding-top: 8px;
+          border-top: 1px solid #fecaca;
+          color: #b91c1c;
+        }
       </style>
-      <div class="translation ${isError ? "error" : content === "翻译中…" ? "loading" : ""}" role="status">${escapeHtml(content)}</div>
+      <div class="translation ${isError ? "error" : content === "翻译中…" ? "loading" : ""}" role="status">
+        <span>${escapeHtml(content)}</span>
+        ${interruption ? `<span class="interruption">翻译中断：${escapeHtml(interruption)}</span>` : ""}
+      </div>
     `;
     repositionOverlay();
+  }
+
+  function showTranslationError(error) {
+    if (translationContent) {
+      showOverlay(translationContent, false, error);
+    } else {
+      showOverlay(error, true);
+    }
   }
 
   function repositionOverlay() {
@@ -134,12 +185,22 @@
 
   function closeOverlay() {
     requestId += 1;
+    cancelTranslation();
     if (overlayHost) {
       overlayHost.remove();
       overlayHost = null;
       shadowRoot = null;
       anchorRange = null;
     }
+  }
+
+  function cancelTranslation() {
+    if (translationPort) {
+      const port = translationPort;
+      translationPort = null;
+      port.disconnect();
+    }
+    translationContent = "";
   }
 
   function escapeHtml(value) {

@@ -23,6 +23,11 @@
         <label for="model">Model</label>
         <input id="model" name="model" type="text" placeholder="请输入模型名称" required>
 
+        <label class="toggle" for="stream-enabled">
+          <input id="stream-enabled" name="stream-enabled" type="checkbox">
+          <span>启用流式响应</span>
+        </label>
+
         <button class="save" type="submit">保存设置</button>
         <p id="status" class="status" role="status" aria-live="polite"></p>
       </form>
