@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>翻译插件设置</title>
+    <link rel="stylesheet" href="options.css">
+  </head>
+  <body>
+    <main class="settings">
+      <h1>翻译插件设置</h1>
+      <p class="intro">配置 OpenAI-compatible 翻译服务。</p>
+      <form id="settings-form">
+        <label for="base-url">Base URL</label>
+        <input id="base-url" name="base-url" type="url" placeholder="https://api.openai.com/v1" required>
+
+        <label for="token">Token</label>
+        <div class="token-row">
+          <input id="token" name="token" type="password" autocomplete="off" placeholder="请输入 API Token">
+          <button id="toggle-token" type="button" aria-label="显示或隐藏 Token">显示</button>
+        </div>
+
+        <label for="model">Model</label>
+        <input id="model" name="model" type="text" placeholder="请输入模型名称" required>
+
+        <button class="save" type="submit">保存设置</button>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>

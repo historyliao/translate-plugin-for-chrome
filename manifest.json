@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "English to Chinese Translator",
+  "version": "1.0.0",
+  "description": "Translate selected English text into Chinese with an OpenAI-compatible API.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "action": {
+    "default_title": "English to Chinese Translator"
+  },
+  "options_page": "options/options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content/content-script.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
