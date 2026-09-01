@@ -1,6 +1,12 @@
 # translate-plugin-for-chrome
 
-一个基于 OpenAI-compatible API 的 Chrome 英文转中文翻译插件。
+一个简单、开放、可自定义模型的 AI 划词翻译 Chrome 插件。选中网页中的英文，即可通过你自己的 OpenAI-compatible API 实时翻译成中文。
+
+- 简单：加载插件、填写 API 配置即可使用
+- 开放：MIT 开源，不绑定任何模型服务商
+- 自定义模型：自由配置 Base URL、Token 和 Model
+- 即选即译：选中英文后自动显示中文浮层
+- 灵活控制：支持流式响应和一键暂停翻译，避免浪费 Token
 
 ## 安装
 
