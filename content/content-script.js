@@ -5,12 +5,16 @@
   let anchorRange = null;
   let translationPort = null;
   let translationContent = "";
+  let translationEnabled;
 
   document.addEventListener("mousedown", handleMouseDown, true);
   document.addEventListener("mouseup", handleMouseUp, true);
   window.addEventListener("scroll", repositionOverlay, true);
   window.addEventListener("resize", repositionOverlay);
   window.addEventListener("pagehide", cancelTranslation);
+  chrome.storage.onChanged.addListener(handleStorageChange);
+
+  loadTranslationState();
 
   function handleMouseDown(event) {
     if (!overlayHost || overlayHost.contains(event.target)) {
@@ -32,7 +36,11 @@
   }
 
   function handleMouseUp(event) {
-    if (event.button !== 0 || (overlayHost && overlayHost.contains(event.target))) {
+    if (
+      translationEnabled !== true ||
+      event.button !== 0 ||
+      (overlayHost && overlayHost.contains(event.target))
+    ) {
       return;
     }
 
@@ -201,6 +209,27 @@
       port.disconnect();
     }
     translationContent = "";
+  }
+
+  function handleStorageChange(changes, areaName) {
+    if (areaName !== "local" || !changes.translationEnabled) {
+      return;
+    }
+
+    translationEnabled = changes.translationEnabled.newValue !== false;
+    if (!translationEnabled) {
+      closeOverlay();
+    }
+  }
+
+  async function loadTranslationState() {
+    try {
+      const settings = await chrome.storage.local.get("translationEnabled");
+      translationEnabled = settings.translationEnabled !== false;
+    } catch (error) {
+      translationEnabled = true;
+      console.error("Failed to read translation status", error);
+    }
   }
 
   function escapeHtml(value) {

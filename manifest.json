@@ -13,7 +13,8 @@
     "service_worker": "background/service-worker.js"
   },
   "action": {
-    "default_title": "English to Chinese Translator"
+    "default_title": "English to Chinese Translator",
+    "default_popup": "popup/popup.html"
   },
   "options_page": "options/options.html",
   "content_scripts": [
