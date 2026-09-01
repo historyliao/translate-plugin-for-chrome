@@ -40,10 +40,15 @@ form.addEventListener("submit", async (event) => {
     values.token = token;
     values.tokenConfigured = true;
   }
-  await chrome.storage.local.set(values);
-  tokenConfigured = tokenConfigured || Boolean(token);
-  tokenInput.value = "";
-  showStatus("配置已保存", false);
+  try {
+    await chrome.storage.local.set(values);
+    tokenConfigured = tokenConfigured || Boolean(token);
+    tokenInput.value = "";
+    showStatus("配置已保存", false);
+    window.close();
+  } catch {
+    showStatus("保存配置失败，请重试", true);
+  }
 });
 
 toggleToken.addEventListener("click", () => {

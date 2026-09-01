@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>英文翻译</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="popup">
+      <h1>英文翻译</h1>
+      <div class="toggle-row">
+        <div>
+          <label for="translation-enabled">自动翻译</label>
+          <p id="translation-status" class="translation-status" aria-live="polite"></p>
+        </div>
+        <label class="switch">
+          <input id="translation-enabled" type="checkbox" disabled>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <button id="open-options" type="button">打开设置</button>
+      <p id="error" class="error" role="alert"></p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

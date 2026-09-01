@@ -1,8 +1,15 @@
 const REQUEST_TIMEOUT_MS = 30000;
 
-chrome.action.onClicked.addListener(() => {
-  chrome.runtime.openOptionsPage();
+chrome.runtime.onInstalled.addListener(refreshActionState);
+chrome.runtime.onStartup.addListener(refreshActionState);
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === "local" && changes.translationEnabled) {
+    updateActionState(changes.translationEnabled.newValue !== false)
+      .catch((error) => console.error("Failed to update translation status", error));
+  }
 });
+
+refreshActionState();
 
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== "translation") {
@@ -220,6 +227,38 @@ function postToPort(port, message) {
   } catch {
     return false;
   }
+}
+
+async function refreshActionState() {
+  const translationEnabled = await getTranslationEnabled();
+  try {
+    await updateActionState(translationEnabled);
+  } catch (error) {
+    console.error("Failed to update translation status", error);
+  }
+}
+
+async function getTranslationEnabled() {
+  let translationEnabled = true;
+  try {
+    const settings = await chrome.storage.local.get("translationEnabled");
+    translationEnabled = settings.translationEnabled !== false;
+  } catch (error) {
+    console.error("Failed to read translation status", error);
+  }
+  return translationEnabled;
+}
+
+async function updateActionState(translationEnabled) {
+  await Promise.all([
+    chrome.action.setBadgeText({ text: translationEnabled ? "ON" : "OFF" }),
+    chrome.action.setBadgeBackgroundColor({
+      color: translationEnabled ? "#16a34a" : "#6b7280"
+    }),
+    chrome.action.setTitle({
+      title: translationEnabled ? "翻译已开启" : "翻译已关闭"
+    })
+  ]);
 }
 
 function normalizeBaseUrl(baseUrl) {
