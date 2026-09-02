@@ -46,7 +46,9 @@ form.addEventListener("submit", async (event) => {
     tokenInput.value = "";
     showStatus("配置已保存", false);
     window.close();
-  } catch {
+  } catch (error) {
+    console.error("Failed to save settings", error);
+    reportRuntimeLog("settings_write_failed");
     showStatus("保存配置失败，请重试", true);
   }
 });
@@ -58,16 +60,22 @@ toggleToken.addEventListener("click", () => {
 });
 
 async function loadSettings() {
-  const settings = await chrome.storage.local.get([
-    "baseUrl",
-    "model",
-    "streamEnabled",
-    "tokenConfigured"
-  ]);
-  baseUrlInput.value = settings.baseUrl || "";
-  modelInput.value = settings.model || "";
-  streamEnabledInput.checked = settings.streamEnabled === true;
-  tokenConfigured = settings.tokenConfigured === true;
+  try {
+    const settings = await chrome.storage.local.get([
+      "baseUrl",
+      "model",
+      "streamEnabled",
+      "tokenConfigured"
+    ]);
+    baseUrlInput.value = settings.baseUrl || "";
+    modelInput.value = settings.model || "";
+    streamEnabledInput.checked = settings.streamEnabled === true;
+    tokenConfigured = settings.tokenConfigured === true;
+  } catch (error) {
+    console.error("Failed to read settings", error);
+    reportRuntimeLog("settings_read_failed");
+    showStatus("读取配置失败，请重新打开设置页", true);
+  }
 }
 
 function isValidBaseUrl(value) {
@@ -87,4 +95,13 @@ function isValidBaseUrl(value) {
 function showStatus(message, isError) {
   status.textContent = message;
   status.className = `status${isError ? " error" : ""}`;
+}
+
+function reportRuntimeLog(event) {
+  try {
+    chrome.runtime.sendMessage({ type: "runtime-log", event })
+      .catch((error) => console.error("Failed to report runtime log", error));
+  } catch (error) {
+    console.error("Failed to report runtime log", error);
+  }
 }

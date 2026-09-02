@@ -9,18 +9,64 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
-  width: 280px;
+  width: 360px;
   margin: 0;
 }
 
+button {
+  font: inherit;
+}
+
 .popup {
-  padding: 18px;
+  padding: 16px;
 }
 
 h1 {
-  margin: 0 0 18px;
+  margin: 0 0 12px;
   font-size: 18px;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0 -16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tab {
+  padding: 9px 4px 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: #1d4ed8;
+}
+
+.tab.active {
+  border-bottom-color: #2563eb;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.tab:focus-visible,
+button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.tab-panel {
+  max-height: 480px;
+  padding-top: 14px;
+  overflow-y: auto;
 }
 
 .toggle-row {
@@ -102,21 +148,247 @@ h1 {
   opacity: 0.6;
 }
 
-button {
+.primary-button,
+.danger-button {
   width: 100%;
   height: 38px;
   margin-top: 16px;
-  border: 1px solid #1d4ed8;
   border-radius: 4px;
-  background: #2563eb;
-  color: #ffffff;
-  font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
-button:hover {
+.primary-button {
+  border: 1px solid #1d4ed8;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.primary-button:hover {
   background: #1d4ed8;
+}
+
+.danger-button {
+  border: 1px solid #dc2626;
+  background: #ffffff;
+  color: #b91c1c;
+}
+
+.danger-button:hover {
+  background: #fef2f2;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.metric-card {
+  min-width: 0;
+  padding: 11px;
+  border-radius: 7px;
+}
+
+.total-card {
+  background: #eff6ff;
+}
+
+.today-card {
+  background: #f0fdf4;
+}
+
+.metric-card h2,
+.data-section h2 {
+  margin: 0;
+  font-size: 12px;
+}
+
+.metric-card strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 19px;
+  overflow-wrap: anywhere;
+}
+
+.metric-card p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.data-section {
+  margin-top: 16px;
+}
+
+.daily-chart {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  height: 94px;
+  margin-top: 8px;
+}
+
+.chart-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: flex-end;
+  text-align: center;
+}
+
+.chart-value {
+  margin-bottom: 3px;
+  color: #64748b;
+  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chart-bar-area {
+  display: flex;
+  height: 58px;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.chart-bar {
+  width: 70%;
+  min-height: 0;
+  border-radius: 3px 3px 0 0;
+  background: #3b82f6;
+}
+
+.chart-label {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 9px;
+}
+
+.usage-list,
+.log-list {
+  margin: 7px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.usage-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.usage-item:last-child {
+  border-bottom: 0;
+}
+
+.usage-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.usage-detail {
+  margin: 3px 0 0;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.empty-state {
+  margin: 10px 0 0;
+  color: #94a3b8;
+  font-size: 12px;
+  text-align: center;
+}
+
+.log-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.filters {
+  display: flex;
+  gap: 4px;
+}
+
+.filter,
+.text-button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.filter {
+  padding: 5px 9px;
+  border-radius: 14px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.filter:hover,
+.filter.active {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.text-button {
+  padding: 5px;
+  color: #b91c1c;
+  font-size: 11px;
+}
+
+.text-button:hover {
+  text-decoration: underline;
+}
+
+.log-list {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.log-item {
+  margin-top: 7px;
+  padding: 9px;
+  border-left: 3px solid #64748b;
+  border-radius: 4px;
+  background: #f8fafc;
+}
+
+.log-item.error-level {
+  border-left-color: #dc2626;
+  background: #fef2f2;
+}
+
+.log-item.info-level {
+  border-left-color: #2563eb;
+  background: #eff6ff;
+}
+
+.log-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #64748b;
+  font-size: 9px;
+}
+
+.log-message {
+  margin: 5px 0 0;
+  font-size: 12px;
+}
+
+.log-model {
+  margin: 3px 0 0;
+  color: #64748b;
+  font-size: 10px;
+  overflow-wrap: anywhere;
 }
 
 .error {

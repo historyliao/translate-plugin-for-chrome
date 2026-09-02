@@ -9,17 +9,74 @@
   <body>
     <main class="popup">
       <h1>英文翻译</h1>
-      <div class="toggle-row">
-        <div>
-          <label for="translation-enabled">自动翻译</label>
-          <p id="translation-status" class="translation-status" aria-live="polite"></p>
-        </div>
-        <label class="switch">
-          <input id="translation-enabled" type="checkbox" disabled>
-          <span class="slider"></span>
-        </label>
+      <div class="tabs" role="tablist" aria-label="控制面板">
+        <button id="control-tab" class="tab active" type="button" role="tab" aria-selected="true" aria-controls="control-panel" data-panel="control-panel">控制</button>
+        <button id="monitor-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="monitor-panel" data-panel="monitor-panel">监控</button>
+        <button id="logs-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="logs-panel" data-panel="logs-panel">日志</button>
       </div>
-      <button id="open-options" type="button">打开设置</button>
+
+      <section id="control-panel" class="tab-panel" role="tabpanel" aria-labelledby="control-tab">
+        <div class="toggle-row">
+          <div>
+            <label for="translation-enabled">自动翻译</label>
+            <p id="translation-status" class="translation-status" aria-live="polite"></p>
+          </div>
+          <label class="switch">
+            <input id="translation-enabled" type="checkbox" disabled>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <button id="open-options" class="primary-button" type="button">打开设置</button>
+      </section>
+
+      <section id="monitor-panel" class="tab-panel" role="tabpanel" aria-labelledby="monitor-tab" hidden>
+        <div class="metric-grid">
+          <article class="metric-card total-card">
+            <h2>历史总 Token</h2>
+            <strong id="history-total">0</strong>
+            <p>输入 <span id="history-prompt">0</span> · 输出 <span id="history-completion">0</span></p>
+          </article>
+          <article class="metric-card today-card">
+            <h2>今日实时消耗</h2>
+            <strong id="today-total">0</strong>
+            <p>输入 <span id="today-prompt">0</span> · 输出 <span id="today-completion">0</span></p>
+          </article>
+        </div>
+
+        <section class="data-section" aria-labelledby="trend-title">
+          <h2 id="trend-title">最近 7 天</h2>
+          <div id="daily-chart" class="daily-chart"></div>
+          <p id="chart-empty" class="empty-state" hidden>暂无 Token 消耗</p>
+        </section>
+
+        <section class="data-section" aria-labelledby="models-title">
+          <h2 id="models-title">按模型</h2>
+          <ul id="model-usage" class="usage-list"></ul>
+          <p id="models-empty" class="empty-state">暂无模型统计</p>
+        </section>
+
+        <section class="data-section" aria-labelledby="daily-title">
+          <h2 id="daily-title">最近 90 天</h2>
+          <ul id="daily-usage" class="usage-list"></ul>
+          <p id="daily-empty" class="empty-state">暂无每日统计</p>
+        </section>
+
+        <button id="reset-token-usage" class="danger-button" type="button">重置 Token 统计</button>
+      </section>
+
+      <section id="logs-panel" class="tab-panel" role="tabpanel" aria-labelledby="logs-tab" hidden>
+        <div class="log-toolbar">
+          <div class="filters" role="group" aria-label="日志级别">
+            <button class="filter active" type="button" data-level="all">全部</button>
+            <button class="filter" type="button" data-level="error">错误</button>
+            <button class="filter" type="button" data-level="info">信息</button>
+          </div>
+          <button id="clear-logs" class="text-button" type="button">清空日志</button>
+        </div>
+        <ul id="runtime-logs" class="log-list"></ul>
+        <p id="logs-empty" class="empty-state">暂无日志</p>
+      </section>
+
       <p id="error" class="error" role="alert"></p>
     </main>
     <script src="popup.js"></script>
