@@ -62,7 +62,15 @@
     const currentRequestId = ++requestId;
     showOverlay("翻译中…");
 
-    const port = chrome.runtime.connect({ name: "translation" });
+    let port;
+    try {
+      port = chrome.runtime.connect({ name: "translation" });
+    } catch (error) {
+      console.error("Failed to connect to translation service", error);
+      reportRuntimeLog("service_connection_error");
+      showTranslationError("翻译服务请求失败，请重新加载插件和当前页面");
+      return;
+    }
     translationPort = port;
 
     port.onMessage.addListener((message) => {
@@ -94,12 +102,15 @@
         return;
       }
       translationPort = null;
+      reportRuntimeLog("service_connection_error");
       showTranslationError("翻译服务连接已中断");
     });
 
     try {
       port.postMessage({ type: "translate", text });
-    } catch {
+    } catch (error) {
+      console.error("Failed to request translation", error);
+      reportRuntimeLog("service_connection_error");
       translationPort = null;
       port.disconnect();
       showTranslationError("翻译服务请求失败，请重新加载插件和当前页面");
@@ -229,6 +240,16 @@
     } catch (error) {
       translationEnabled = true;
       console.error("Failed to read translation status", error);
+      reportRuntimeLog("translation_state_read_failed");
+    }
+  }
+
+  function reportRuntimeLog(event) {
+    try {
+      chrome.runtime.sendMessage({ type: "runtime-log", event })
+        .catch((error) => console.error("Failed to report runtime log", error));
+    } catch (error) {
+      console.error("Failed to report runtime log", error);
     }
   }
 
