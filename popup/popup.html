@@ -11,7 +11,8 @@
       <h1>英文翻译</h1>
       <div class="tabs" role="tablist" aria-label="控制面板">
         <button id="control-tab" class="tab active" type="button" role="tab" aria-selected="true" aria-controls="control-panel" data-panel="control-panel">控制</button>
-        <button id="monitor-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="monitor-panel" data-panel="monitor-panel">监控</button>
+        <button id="monitor-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="monitor-panel" data-panel="monitor-panel">Token</button>
+        <button id="latency-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="latency-panel" data-panel="latency-panel">延迟</button>
         <button id="logs-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="logs-panel" data-panel="logs-panel">日志</button>
       </div>
 
@@ -62,6 +63,51 @@
         </section>
 
         <button id="reset-token-usage" class="danger-button" type="button">重置 Token 统计</button>
+      </section>
+
+      <section id="latency-panel" class="tab-panel" role="tabpanel" aria-labelledby="latency-tab" hidden>
+        <div class="latency-summary-grid">
+          <article class="metric-card total-card">
+            <h2>历史成功请求</h2>
+            <strong id="latency-history-success">0</strong>
+          </article>
+          <article class="metric-card today-card">
+            <h2>平均总耗时</h2>
+            <strong id="latency-history-average">--</strong>
+          </article>
+          <article class="metric-card percentile-card">
+            <h2>最近样本 P50</h2>
+            <strong id="latency-history-p50">--</strong>
+          </article>
+          <article class="metric-card percentile-card">
+            <h2>最近样本 P95</h2>
+            <strong id="latency-history-p95">--</strong>
+          </article>
+        </div>
+
+        <section class="data-section" aria-labelledby="latency-today-title">
+          <h2 id="latency-today-title">今日请求结果</h2>
+          <div class="result-grid">
+            <div class="result-card"><span>成功</span><strong id="latency-today-success">0</strong></div>
+            <div class="result-card"><span>失败</span><strong id="latency-today-failure">0</strong></div>
+            <div class="result-card"><span>超时</span><strong id="latency-today-timeout">0</strong></div>
+            <div class="result-card"><span>取消</span><strong id="latency-today-canceled">0</strong></div>
+          </div>
+        </section>
+
+        <section class="data-section" aria-labelledby="latency-targets-title">
+          <h2 id="latency-targets-title">按 API 与模型</h2>
+          <ul id="latency-targets" class="latency-list"></ul>
+          <p id="latency-targets-empty" class="empty-state">暂无目标统计</p>
+        </section>
+
+        <section class="data-section" aria-labelledby="latency-daily-title">
+          <h2 id="latency-daily-title">最近 90 天</h2>
+          <ul id="latency-daily" class="latency-list"></ul>
+          <p id="latency-daily-empty" class="empty-state">暂无每日统计</p>
+        </section>
+
+        <button id="reset-latency-metrics" class="danger-button" type="button">重置延迟统计</button>
       </section>
 
       <section id="logs-panel" class="tab-panel" role="tabpanel" aria-labelledby="logs-tab" hidden>

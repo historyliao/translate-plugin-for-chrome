@@ -3,6 +3,15 @@ const EMPTY_USAGE = {
   completionTokens: 0,
   totalTokens: 0
 };
+const EMPTY_LATENCY_AGGREGATE = {
+  successCount: 0,
+  failureCount: 0,
+  timeoutCount: 0,
+  canceledCount: 0,
+  ttfb: { count: 0, totalMs: 0, minMs: 0, maxMs: 0 },
+  ttft: { count: 0, totalMs: 0, minMs: 0, maxMs: 0 },
+  duration: { count: 0, totalMs: 0, minMs: 0, maxMs: 0 }
+};
 const numberFormatter = new Intl.NumberFormat("zh-CN");
 const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
   month: "2-digit",
@@ -19,6 +28,7 @@ const translationEnabledInput = document.querySelector("#translation-enabled");
 const translationStatus = document.querySelector("#translation-status");
 const openOptionsButton = document.querySelector("#open-options");
 const resetTokenUsageButton = document.querySelector("#reset-token-usage");
+const resetLatencyMetricsButton = document.querySelector("#reset-latency-metrics");
 const clearLogsButton = document.querySelector("#clear-logs");
 const filterButtons = Array.from(document.querySelectorAll(".filter"));
 const errorMessage = document.querySelector("#error");
@@ -28,10 +38,15 @@ const modelUsageList = document.querySelector("#model-usage");
 const modelsEmpty = document.querySelector("#models-empty");
 const dailyUsageList = document.querySelector("#daily-usage");
 const dailyEmpty = document.querySelector("#daily-empty");
+const latencyTargetsList = document.querySelector("#latency-targets");
+const latencyTargetsEmpty = document.querySelector("#latency-targets-empty");
+const latencyDailyList = document.querySelector("#latency-daily");
+const latencyDailyEmpty = document.querySelector("#latency-daily-empty");
 const runtimeLogsList = document.querySelector("#runtime-logs");
 const logsEmpty = document.querySelector("#logs-empty");
 let translationEnabled = true;
 let tokenUsage = null;
+let latencyMetrics = null;
 let runtimeLogs = [];
 let logLevel = "all";
 
@@ -96,6 +111,28 @@ resetTokenUsageButton.addEventListener("click", async () => {
   }
 });
 
+resetLatencyMetricsButton.addEventListener("click", async () => {
+  const confirmed = window.confirm(
+    "将永久清除历史延迟、目标统计、每日统计和最近样本，此操作不会清除 Token 统计或日志，是否继续？"
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  resetLatencyMetricsButton.disabled = true;
+  errorMessage.textContent = "";
+  try {
+    await runMonitoringCommand("reset-latency-metrics");
+    latencyMetrics = null;
+    renderLatencyMetrics();
+  } catch (error) {
+    console.error("Failed to reset latency metrics", error);
+    errorMessage.textContent = "重置延迟统计失败，请重试";
+  } finally {
+    resetLatencyMetricsButton.disabled = false;
+  }
+});
+
 clearLogsButton.addEventListener("click", async () => {
   clearLogsButton.disabled = true;
   errorMessage.textContent = "";
@@ -133,6 +170,10 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     tokenUsage = changes.tokenUsage.newValue || null;
     renderTokenUsage();
   }
+  if (changes.latencyMetrics) {
+    latencyMetrics = changes.latencyMetrics.newValue || null;
+    renderLatencyMetrics();
+  }
   if (changes.runtimeLogs) {
     runtimeLogs = Array.isArray(changes.runtimeLogs.newValue)
       ? changes.runtimeLogs.newValue
@@ -146,10 +187,12 @@ async function loadPopupData() {
     const settings = await chrome.storage.local.get([
       "translationEnabled",
       "tokenUsage",
+      "latencyMetrics",
       "runtimeLogs"
     ]);
     translationEnabled = settings.translationEnabled !== false;
     tokenUsage = settings.tokenUsage || null;
+    latencyMetrics = settings.latencyMetrics || null;
     runtimeLogs = Array.isArray(settings.runtimeLogs) ? settings.runtimeLogs : [];
   } catch (error) {
     console.error("Failed to read popup data", error);
@@ -158,6 +201,7 @@ async function loadPopupData() {
   }
   renderTranslationState();
   renderTokenUsage();
+  renderLatencyMetrics();
   renderLogs();
   translationEnabledInput.disabled = false;
 }
@@ -265,6 +309,126 @@ function renderUsageList(list, emptyState, entries) {
     item.append(heading, detail);
     list.appendChild(item);
   }
+}
+
+function renderLatencyMetrics() {
+  const total = latencyMetrics?.total || EMPTY_LATENCY_AGGREGATE;
+  const samples = Array.isArray(latencyMetrics?.samples)
+    ? latencyMetrics.samples
+    : [];
+  document.querySelector("#latency-history-success").textContent = formatTokens(total.successCount);
+  document.querySelector("#latency-history-average").textContent = formatDuration(
+    getAverageDuration(total.duration)
+  );
+  document.querySelector("#latency-history-p50").textContent = formatDuration(
+    getPercentile(samples, "durationMs", 0.5)
+  );
+  document.querySelector("#latency-history-p95").textContent = formatDuration(
+    getPercentile(samples, "durationMs", 0.95)
+  );
+
+  const today = latencyMetrics?.byDate?.[getLocalDateKey(new Date())]
+    || EMPTY_LATENCY_AGGREGATE;
+  document.querySelector("#latency-today-success").textContent = formatTokens(today.successCount);
+  document.querySelector("#latency-today-failure").textContent = formatTokens(today.failureCount);
+  document.querySelector("#latency-today-timeout").textContent = formatTokens(today.timeoutCount);
+  document.querySelector("#latency-today-canceled").textContent = formatTokens(today.canceledCount);
+
+  const targetEntries = Object.entries(latencyMetrics?.byTarget || {})
+    .sort((left, right) => (
+      right[1].successCount - left[1].successCount
+      || getRequestCount(right[1]) - getRequestCount(left[1])
+    ));
+  renderLatencyTargets(targetEntries, samples);
+
+  const now = new Date();
+  const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  cutoff.setDate(cutoff.getDate() - 89);
+  const cutoffKey = getLocalDateKey(cutoff);
+  const todayKey = getLocalDateKey(now);
+  const dailyEntries = Object.entries(latencyMetrics?.byDate || {})
+    .filter(([dateKey]) => dateKey >= cutoffKey && dateKey <= todayKey)
+    .sort((left, right) => right[0].localeCompare(left[0]));
+  renderLatencyDaily(dailyEntries);
+}
+
+function renderLatencyTargets(entries, samples) {
+  latencyTargetsList.replaceChildren();
+  latencyTargetsEmpty.hidden = entries.length > 0;
+  for (const [targetKey, aggregate] of entries) {
+    const item = document.createElement("li");
+    item.className = "latency-item";
+    const heading = document.createElement("p");
+    heading.className = "latency-title";
+    heading.append(`${aggregate.host} · ${aggregate.model}`);
+    const mode = document.createElement("span");
+    mode.className = "latency-mode";
+    mode.textContent = aggregate.streamEnabled ? "流式" : "非流式";
+    heading.appendChild(mode);
+
+    const results = document.createElement("p");
+    results.className = "latency-detail";
+    results.textContent = `成功 ${formatTokens(aggregate.successCount)} · 失败 ${formatTokens(aggregate.failureCount)} · 超时 ${formatTokens(aggregate.timeoutCount)} · 取消 ${formatTokens(aggregate.canceledCount)}`;
+    const delays = document.createElement("p");
+    delays.className = "latency-detail";
+    delays.textContent = `TTFB ${formatDuration(getAverageDuration(aggregate.ttfb))} · TTFT ${formatDuration(getAverageDuration(aggregate.ttft))} · 总耗时 ${formatDuration(getAverageDuration(aggregate.duration))}`;
+    const targetSamples = samples.filter((sample) => sample.targetKey === targetKey);
+    const percentiles = document.createElement("p");
+    percentiles.className = "latency-detail";
+    percentiles.textContent = `最近样本 P50 ${formatDuration(getPercentile(targetSamples, "durationMs", 0.5))} · P95 ${formatDuration(getPercentile(targetSamples, "durationMs", 0.95))}`;
+
+    item.append(heading, results, delays, percentiles);
+    latencyTargetsList.appendChild(item);
+  }
+}
+
+function renderLatencyDaily(entries) {
+  latencyDailyList.replaceChildren();
+  latencyDailyEmpty.hidden = entries.length > 0;
+  for (const [dateKey, aggregate] of entries) {
+    const item = document.createElement("li");
+    item.className = "latency-item";
+    const heading = document.createElement("p");
+    heading.className = "latency-title";
+    heading.textContent = dateKey;
+    const results = document.createElement("p");
+    results.className = "latency-detail";
+    results.textContent = `成功 ${formatTokens(aggregate.successCount)} · 失败 ${formatTokens(aggregate.failureCount)} · 超时 ${formatTokens(aggregate.timeoutCount)} · 取消 ${formatTokens(aggregate.canceledCount)}`;
+    const delays = document.createElement("p");
+    delays.className = "latency-detail";
+    delays.textContent = `TTFB ${formatDuration(getAverageDuration(aggregate.ttfb))} · TTFT ${formatDuration(getAverageDuration(aggregate.ttft))} · 总耗时 ${formatDuration(getAverageDuration(aggregate.duration))}`;
+
+    item.append(heading, results, delays);
+    latencyDailyList.appendChild(item);
+  }
+}
+
+function getRequestCount(aggregate) {
+  return aggregate.successCount
+    + aggregate.failureCount
+    + aggregate.timeoutCount
+    + aggregate.canceledCount;
+}
+
+function getAverageDuration(metric) {
+  return metric?.count > 0 ? metric.totalMs / metric.count : null;
+}
+
+function getPercentile(samples, field, percentile) {
+  const values = samples
+    .map((sample) => sample[field])
+    .filter((value) => Number.isFinite(value))
+    .sort((left, right) => left - right);
+  if (values.length === 0) {
+    return null;
+  }
+  return values[Math.ceil(percentile * values.length) - 1];
+}
+
+function formatDuration(value) {
+  return Number.isFinite(value)
+    ? `${numberFormatter.format(Math.round(value))} ms`
+    : "--";
 }
 
 function renderLogs() {

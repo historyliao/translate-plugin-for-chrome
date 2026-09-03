@@ -1,5 +1,6 @@
 const REQUEST_TIMEOUT_MS = 30000;
 const DAILY_USAGE_RETENTION_DAYS = 90;
+const LATENCY_SAMPLE_LIMIT = 500;
 const RUNTIME_LOG_LIMIT = 500;
 const RUNTIME_LOG_DEFINITIONS = {
   action_state_update_failed: { level: "error", message: "更新插件状态失败" },
@@ -9,12 +10,14 @@ const RUNTIME_LOG_DEFINITIONS = {
   invalid_base_url: { level: "error", message: "Base URL 无效" },
   invalid_response: { level: "error", message: "翻译服务返回了无效结果" },
   invalid_stream: { level: "error", message: "翻译服务返回了无效流数据" },
+  latency_metrics_write_failed: { level: "error", message: "保存延迟统计失败" },
   network_error: { level: "error", message: "无法连接翻译服务" },
   open_options_failed: { level: "error", message: "打开设置页失败" },
   popup_data_read_failed: { level: "error", message: "读取控制面板数据失败" },
   request_canceled: { level: "info", message: "翻译请求已取消" },
   request_failed: { level: "error", message: "翻译服务请求失败" },
   request_timeout: { level: "error", message: "翻译请求超时" },
+  reset_latency_metrics_failed: { level: "error", message: "重置延迟统计失败" },
   reset_token_usage_failed: { level: "error", message: "重置 Token 统计失败" },
   service_connection_error: { level: "error", message: "翻译服务连接异常" },
   settings_read_failed: { level: "error", message: "读取插件设置失败" },
@@ -66,6 +69,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "reset-token-usage") {
     operation = enqueueStorageMutation(() => chrome.storage.local.remove("tokenUsage"));
     failureEvent = "reset_token_usage_failed";
+  } else if (message.type === "reset-latency-metrics") {
+    operation = enqueueStorageMutation(() => chrome.storage.local.remove("latencyMetrics"));
+    failureEvent = "reset_latency_metrics_failed";
   } else if (message.type === "clear-runtime-logs") {
     operation = enqueueStorageMutation(() => chrome.storage.local.remove("runtimeLogs"));
     failureEvent = "clear_logs_failed";
@@ -141,8 +147,15 @@ async function translate(text, controller, onChunk) {
   let timeoutId;
   let responseReceived = false;
   let usageRecorded = false;
+  let usagePromise = Promise.resolve();
+  let requestStarted = false;
+  let requestStart;
+  let target;
+  let ttfbMs;
+  let ttftMs = null;
+  let durationMs;
 
-  const recordResponseUsage = async (responseUsage) => {
+  const recordResponseUsage = (responseUsage) => {
     if (usageRecorded) {
       return;
     }
@@ -151,7 +164,7 @@ async function translate(text, controller, onChunk) {
       return;
     }
     usageRecorded = true;
-    await recordTokenUsage(model, usage);
+    usagePromise = recordTokenUsage(model, usage);
   };
 
   const resetTimeout = () => {
@@ -181,9 +194,15 @@ async function translate(text, controller, onChunk) {
     }
 
     const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+    const stream = streamEnabled === true;
+    target = {
+      host: new URL(normalizedBaseUrl).host,
+      model,
+      streamEnabled: stream
+    };
     const requestBody = {
       model,
-      stream: streamEnabled === true,
+      stream,
       temperature: 0,
       messages: [
         {
@@ -196,11 +215,13 @@ async function translate(text, controller, onChunk) {
         }
       ]
     };
-    if (streamEnabled === true) {
+    if (stream) {
       requestBody.stream_options = { include_usage: true };
     }
 
     resetTimeout();
+    requestStart = performance.now();
+    requestStarted = true;
     const response = await fetch(`${normalizedBaseUrl}/chat/completions`, {
       method: "POST",
       headers: {
@@ -210,6 +231,7 @@ async function translate(text, controller, onChunk) {
       body: JSON.stringify(requestBody),
       signal: controller.signal
     });
+    ttfbMs = getElapsedMilliseconds(requestStart);
 
     if (!response.ok) {
       const error = new Error(`HTTP_${response.status}`);
@@ -218,8 +240,17 @@ async function translate(text, controller, onChunk) {
     }
     responseReceived = true;
 
-    if (streamEnabled === true) {
-      await readStreamingResponse(response, onChunk, recordResponseUsage, resetTimeout);
+    if (stream) {
+      const completedAt = await readStreamingResponse(
+        response,
+        onChunk,
+        recordResponseUsage,
+        resetTimeout,
+        () => {
+          ttftMs = getElapsedMilliseconds(requestStart);
+        }
+      );
+      durationMs = getElapsedMilliseconds(requestStart, completedAt);
     } else {
       let data;
       try {
@@ -227,13 +258,20 @@ async function translate(text, controller, onChunk) {
       } catch {
         throw new Error("INVALID_RESPONSE");
       }
-      await recordResponseUsage(data?.usage);
+      recordResponseUsage(data?.usage);
       const translation = data?.choices?.[0]?.message?.content;
       if (typeof translation !== "string" || !translation.trim()) {
         throw new Error("INVALID_RESPONSE");
       }
+      durationMs = getElapsedMilliseconds(requestStart);
       onChunk(translation.trim());
     }
+    clearTimeout(timeoutId);
+    await recordLatencyResult(target, "success", {
+      ttfbMs,
+      ttftMs,
+      durationMs
+    });
     return model;
   } catch (error) {
     let translatedError = error;
@@ -242,17 +280,27 @@ async function translate(text, controller, onChunk) {
     } else if (error instanceof TypeError) {
       translatedError = new Error("NETWORK");
     }
+    clearTimeout(timeoutId);
+    if (requestStarted) {
+      const result = translatedError.message === "TIMEOUT"
+        ? "timeout"
+        : translatedError.message === "CANCELED"
+          ? "canceled"
+          : "failure";
+      await recordLatencyResult(target, result);
+    }
     translatedError.model = model;
     throw translatedError;
   } finally {
     clearTimeout(timeoutId);
+    await usagePromise;
     if (responseReceived && !usageRecorded) {
       await recordRuntimeLog("usage_missing", model);
     }
   }
 }
 
-async function readStreamingResponse(response, onChunk, onUsage, resetTimeout) {
+async function readStreamingResponse(response, onChunk, onUsage, resetTimeout, onFirstContent) {
   if (!response.body) {
     throw new Error("INVALID_RESPONSE");
   }
@@ -262,6 +310,7 @@ async function readStreamingResponse(response, onChunk, onUsage, resetTimeout) {
   let buffer = "";
   let receivedContent = false;
   let completed = false;
+  let completedAt;
 
   const handleLine = async (line) => {
     const event = parseStreamLine(line);
@@ -270,12 +319,16 @@ async function readStreamingResponse(response, onChunk, onUsage, resetTimeout) {
     }
     if (event.done) {
       completed = true;
+      completedAt = performance.now();
       return;
     }
     if (Object.hasOwn(event, "usage")) {
       await onUsage(event.usage);
     }
     if (event.content) {
+      if (!receivedContent) {
+        onFirstContent();
+      }
       receivedContent = true;
       resetTimeout();
       onChunk(event.content);
@@ -314,6 +367,7 @@ async function readStreamingResponse(response, onChunk, onUsage, resetTimeout) {
   if (!completed) {
     throw new Error("STREAM_INTERRUPTED");
   }
+  return completedAt;
 }
 
 function parseStreamLine(line) {
@@ -435,6 +489,123 @@ function pruneDailyUsage(byDate, now) {
       delete byDate[dateKey];
     }
   }
+}
+
+function getElapsedMilliseconds(startTime, endTime = performance.now()) {
+  return Math.max(0, Math.round(endTime - startTime));
+}
+
+async function recordLatencyResult(target, result, timing = {}) {
+  const now = new Date();
+  const dateKey = getLocalDateKey(now);
+  const targetKey = JSON.stringify([
+    target.host,
+    target.model,
+    target.streamEnabled
+  ]);
+
+  try {
+    await enqueueStorageMutation(async () => {
+      const stored = await chrome.storage.local.get("latencyMetrics");
+      const latencyMetrics = stored.latencyMetrics || {
+        total: createEmptyLatencyAggregate(),
+        byTarget: {},
+        byDate: {},
+        samples: []
+      };
+      const byTarget = latencyMetrics.byTarget || {};
+      const byDate = latencyMetrics.byDate || {};
+      const targetAggregate = byTarget[targetKey] || {
+        ...createEmptyLatencyAggregate(),
+        ...target
+      };
+      const dateAggregate = byDate[dateKey] || createEmptyLatencyAggregate();
+      const samples = Array.isArray(latencyMetrics.samples)
+        ? latencyMetrics.samples
+        : [];
+
+      latencyMetrics.total = addLatencyResult(
+        latencyMetrics.total || createEmptyLatencyAggregate(),
+        result,
+        timing
+      );
+      latencyMetrics.byTarget = {
+        ...byTarget,
+        [targetKey]: addLatencyResult(targetAggregate, result, timing)
+      };
+      latencyMetrics.byDate = {
+        ...byDate,
+        [dateKey]: addLatencyResult(dateAggregate, result, timing)
+      };
+      if (result === "success") {
+        samples.push({
+          timestamp: now.getTime(),
+          targetKey,
+          ttfbMs: timing.ttfbMs,
+          ttftMs: timing.ttftMs,
+          durationMs: timing.durationMs
+        });
+      }
+      latencyMetrics.samples = samples.slice(-LATENCY_SAMPLE_LIMIT);
+      pruneDailyUsage(latencyMetrics.byDate, now);
+      await chrome.storage.local.set({ latencyMetrics });
+    });
+  } catch (error) {
+    console.error("Failed to record latency metrics", error);
+    await recordRuntimeLog("latency_metrics_write_failed", target.model);
+  }
+}
+
+function createEmptyLatencyAggregate() {
+  return {
+    successCount: 0,
+    failureCount: 0,
+    timeoutCount: 0,
+    canceledCount: 0,
+    ttfb: createEmptyDurationMetric(),
+    ttft: createEmptyDurationMetric(),
+    duration: createEmptyDurationMetric()
+  };
+}
+
+function createEmptyDurationMetric() {
+  return {
+    count: 0,
+    totalMs: 0,
+    minMs: 0,
+    maxMs: 0
+  };
+}
+
+function addLatencyResult(currentAggregate, result, timing) {
+  const aggregate = {
+    ...currentAggregate,
+    successCount: currentAggregate.successCount || 0,
+    failureCount: currentAggregate.failureCount || 0,
+    timeoutCount: currentAggregate.timeoutCount || 0,
+    canceledCount: currentAggregate.canceledCount || 0
+  };
+  aggregate[`${result}Count`] += 1;
+  if (result !== "success") {
+    return aggregate;
+  }
+
+  aggregate.ttfb = addDurationMetric(currentAggregate.ttfb, timing.ttfbMs);
+  aggregate.duration = addDurationMetric(currentAggregate.duration, timing.durationMs);
+  if (timing.ttftMs !== null) {
+    aggregate.ttft = addDurationMetric(currentAggregate.ttft, timing.ttftMs);
+  }
+  return aggregate;
+}
+
+function addDurationMetric(currentMetric, durationMs) {
+  const metric = currentMetric || createEmptyDurationMetric();
+  return {
+    count: metric.count + 1,
+    totalMs: metric.totalMs + durationMs,
+    minMs: metric.count === 0 ? durationMs : Math.min(metric.minMs, durationMs),
+    maxMs: metric.count === 0 ? durationMs : Math.max(metric.maxMs, durationMs)
+  };
 }
 
 function enqueueStorageMutation(mutation) {

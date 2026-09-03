@@ -33,7 +33,7 @@ h1 {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   margin: 0 -16px;
   border-bottom: 1px solid #e5e7eb;
 }
@@ -203,6 +203,10 @@ button:disabled {
   background: #f0fdf4;
 }
 
+.percentile-card {
+  background: #f8fafc;
+}
+
 .metric-card h2,
 .data-section h2 {
   margin: 0;
@@ -271,6 +275,7 @@ button:disabled {
 }
 
 .usage-list,
+.latency-list,
 .log-list {
   margin: 7px 0 0;
   padding: 0;
@@ -297,6 +302,72 @@ button:disabled {
   margin: 3px 0 0;
   color: #64748b;
   font-size: 10px;
+}
+
+.latency-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.result-card {
+  padding: 7px 4px;
+  border-radius: 5px;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.result-card span {
+  display: block;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.result-card strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+}
+
+.latency-item {
+  padding: 9px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.latency-item:last-child {
+  border-bottom: 0;
+}
+
+.latency-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.latency-mode {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.latency-detail {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 .empty-state {
