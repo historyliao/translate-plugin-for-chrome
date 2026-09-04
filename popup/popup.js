@@ -12,6 +12,11 @@ const EMPTY_LATENCY_AGGREGATE = {
   ttft: { count: 0, totalMs: 0, minMs: 0, maxMs: 0 },
   duration: { count: 0, totalMs: 0, minMs: 0, maxMs: 0 }
 };
+const DEFAULT_TARGET_LANGUAGE = "zh-CN";
+const TARGET_LANGUAGES = new Set([
+  "zh-CN", "zh-TW", "en", "ja", "ko", "fr", "de",
+  "es", "pt", "it", "ru", "ar", "hi"
+]);
 const numberFormatter = new Intl.NumberFormat("zh-CN");
 const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
   month: "2-digit",
@@ -26,6 +31,7 @@ const tabButtons = Array.from(document.querySelectorAll(".tab"));
 const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
 const translationEnabledInput = document.querySelector("#translation-enabled");
 const translationStatus = document.querySelector("#translation-status");
+const targetLanguageInput = document.querySelector("#target-language");
 const openOptionsButton = document.querySelector("#open-options");
 const resetTokenUsageButton = document.querySelector("#reset-token-usage");
 const resetLatencyMetricsButton = document.querySelector("#reset-latency-metrics");
@@ -45,6 +51,7 @@ const latencyDailyEmpty = document.querySelector("#latency-daily-empty");
 const runtimeLogsList = document.querySelector("#runtime-logs");
 const logsEmpty = document.querySelector("#logs-empty");
 let translationEnabled = true;
+let targetLanguage = DEFAULT_TARGET_LANGUAGE;
 let tokenUsage = null;
 let latencyMetrics = null;
 let runtimeLogs = [];
@@ -74,6 +81,27 @@ translationEnabledInput.addEventListener("change", async () => {
     errorMessage.textContent = "无法保存翻译状态，请重试";
   } finally {
     translationEnabledInput.disabled = false;
+  }
+});
+
+targetLanguageInput.addEventListener("change", async () => {
+  const previousTargetLanguage = targetLanguage;
+  const nextTargetLanguage = getTargetLanguage(targetLanguageInput.value);
+  targetLanguageInput.disabled = true;
+  errorMessage.textContent = "";
+
+  try {
+    await chrome.storage.local.set({ targetLanguage: nextTargetLanguage });
+    targetLanguage = nextTargetLanguage;
+    renderTargetLanguage();
+  } catch (error) {
+    console.error("Failed to save target language", error);
+    reportRuntimeLog("settings_write_failed");
+    targetLanguage = previousTargetLanguage;
+    renderTargetLanguage();
+    errorMessage.textContent = "无法保存目标语言，请重试";
+  } finally {
+    targetLanguageInput.disabled = false;
   }
 });
 
@@ -166,6 +194,10 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     translationEnabled = changes.translationEnabled.newValue !== false;
     renderTranslationState();
   }
+  if (changes.targetLanguage) {
+    targetLanguage = getTargetLanguage(changes.targetLanguage.newValue);
+    renderTargetLanguage();
+  }
   if (changes.tokenUsage) {
     tokenUsage = changes.tokenUsage.newValue || null;
     renderTokenUsage();
@@ -186,11 +218,13 @@ async function loadPopupData() {
   try {
     const settings = await chrome.storage.local.get([
       "translationEnabled",
+      "targetLanguage",
       "tokenUsage",
       "latencyMetrics",
       "runtimeLogs"
     ]);
     translationEnabled = settings.translationEnabled !== false;
+    targetLanguage = getTargetLanguage(settings.targetLanguage);
     tokenUsage = settings.tokenUsage || null;
     latencyMetrics = settings.latencyMetrics || null;
     runtimeLogs = Array.isArray(settings.runtimeLogs) ? settings.runtimeLogs : [];
@@ -200,10 +234,12 @@ async function loadPopupData() {
     errorMessage.textContent = "无法读取控制面板数据，请重试";
   }
   renderTranslationState();
+  renderTargetLanguage();
   renderTokenUsage();
   renderLatencyMetrics();
   renderLogs();
   translationEnabledInput.disabled = false;
+  targetLanguageInput.disabled = false;
 }
 
 function selectTab(selectedButton) {
@@ -222,6 +258,14 @@ function renderTranslationState() {
   translationEnabledInput.checked = translationEnabled;
   translationStatus.textContent = translationEnabled ? "已开启" : "已关闭";
   translationStatus.className = `translation-status ${translationEnabled ? "enabled" : "disabled"}`;
+}
+
+function renderTargetLanguage() {
+  targetLanguageInput.value = targetLanguage;
+}
+
+function getTargetLanguage(value) {
+  return TARGET_LANGUAGES.has(value) ? value : DEFAULT_TARGET_LANGUAGE;
 }
 
 function renderTokenUsage() {
