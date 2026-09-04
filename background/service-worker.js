@@ -2,6 +2,7 @@ const REQUEST_TIMEOUT_MS = 30000;
 const DAILY_USAGE_RETENTION_DAYS = 90;
 const LATENCY_SAMPLE_LIMIT = 500;
 const RUNTIME_LOG_LIMIT = 500;
+const CONTENT_SCRIPT_SESSION_KEY = "contentScriptsRestored";
 const RUNTIME_LOG_DEFINITIONS = {
   action_state_update_failed: { level: "error", message: "更新插件状态失败" },
   clear_logs_failed: { level: "error", message: "清空日志失败" },
@@ -89,6 +90,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 refreshActionState();
+restoreContentScripts();
 
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== "translation") {
@@ -682,6 +684,35 @@ function postToPort(port, message) {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function restoreContentScripts() {
+  try {
+    const session = await chrome.storage.session.get(CONTENT_SCRIPT_SESSION_KEY);
+    if (session[CONTENT_SCRIPT_SESSION_KEY]) {
+      return;
+    }
+
+    const tabs = await chrome.tabs.query({
+      url: ["http://*/*", "https://*/*"]
+    });
+    await Promise.all(tabs.map(async (tab) => {
+      if (!Number.isInteger(tab.id)) {
+        return;
+      }
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["content/content-script.js"]
+        });
+      } catch (error) {
+        console.warn("Failed to restore content script", tab.id, error);
+      }
+    }));
+    await chrome.storage.session.set({ [CONTENT_SCRIPT_SESSION_KEY]: true });
+  } catch (error) {
+    console.error("Failed to initialize content scripts", error);
   }
 }
 

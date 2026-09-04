@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Translate selected English text into Chinese with an OpenAI-compatible API.",
   "permissions": [
+    "scripting",
     "storage"
   ],
   "host_permissions": [

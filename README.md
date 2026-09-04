@@ -60,7 +60,7 @@ git switch main
 git pull --ff-only origin main
 ```
 
-然后打开 `chrome://extensions`，找到本插件并点击“重新加载”。最后刷新已经打开的网页，使新版内容脚本生效。保存在 Chrome `storage.local` 中的翻译服务配置会继续保留。
+然后打开 `chrome://extensions`，找到本插件并点击“重新加载”。插件会为已经打开的普通 HTTP/HTTPS 页面自动恢复内容脚本，通常无需刷新网页；如果页面受 Chrome 注入限制或仍显示旧版本错误，请手动刷新该页面。保存在 Chrome `storage.local` 中的翻译服务配置会继续保留。
 
 如果插件目录不是 Git 仓库，请用新版本文件完整覆盖原目录，再到 `chrome://extensions` 中重新加载插件。插件加载期间不要删除或移动该目录。
 
