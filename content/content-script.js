@@ -1,4 +1,8 @@
 (() => {
+  const activationEventName = "english-to-chinese-translator:activate";
+  const overlayAttribute = "data-english-to-chinese-translator";
+  const instanceId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  let active = true;
   let overlayHost = null;
   let shadowRoot = null;
   let translationCard = null;
@@ -12,7 +16,12 @@
   let translationPort = null;
   let translationContent = "";
   let translationEnabled;
+  const staleOverlayObserver = new MutationObserver(handleOverlayMutations);
 
+  document.addEventListener(activationEventName, handleContentScriptActivate, true);
+  document.dispatchEvent(new CustomEvent(activationEventName, { detail: instanceId }));
+  removeStaleOverlayHosts();
+  staleOverlayObserver.observe(document.documentElement, { childList: true });
   document.addEventListener("mousedown", handleMouseDown, true);
   document.addEventListener("mouseup", handleMouseUp, true);
   window.addEventListener("scroll", repositionOverlay, true);
@@ -93,17 +102,21 @@
         showOverlay(translationContent);
       } else if (message?.type === "done") {
         translationPort = null;
-        port.disconnect();
+        disconnectPort(port);
       } else if (message?.type === "error") {
         const error = message.error || "翻译服务请求失败，请稍后重试";
         translationPort = null;
-        port.disconnect();
+        disconnectPort(port);
         showTranslationError(error);
       }
     });
 
     port.onDisconnect.addListener(() => {
-      void chrome.runtime.lastError;
+      try {
+        void chrome.runtime.lastError;
+      } catch (error) {
+        console.debug("Failed to read translation disconnect error", error);
+      }
       if (currentRequestId !== requestId || translationPort !== port) {
         return;
       }
@@ -118,7 +131,7 @@
       console.error("Failed to request translation", error);
       reportRuntimeLog("service_connection_error");
       translationPort = null;
-      port.disconnect();
+      disconnectPort(port);
       showTranslationError("翻译服务请求失败，请重新加载插件和当前页面");
     }
   }
@@ -126,7 +139,7 @@
   function showOverlay(content, isError = false, interruption = "") {
     if (!overlayHost) {
       overlayHost = document.createElement("div");
-      overlayHost.setAttribute("data-english-to-chinese-translator", "");
+      overlayHost.setAttribute(overlayAttribute, instanceId);
       overlayHost.style.position = "fixed";
       overlayHost.style.zIndex = "2147483647";
       overlayHost.style.pointerEvents = "auto";
@@ -370,9 +383,68 @@
     if (translationPort) {
       const port = translationPort;
       translationPort = null;
-      port.disconnect();
+      disconnectPort(port);
     }
     translationContent = "";
+  }
+
+  function disconnectPort(port) {
+    try {
+      port.disconnect();
+    } catch (error) {
+      console.debug("Failed to disconnect translation service", error);
+    }
+  }
+
+  function handleContentScriptActivate(event) {
+    if (event.detail !== instanceId) {
+      teardown();
+    }
+  }
+
+  function handleOverlayMutations(mutations) {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (
+          node.nodeType === 1 &&
+          node.hasAttribute(overlayAttribute) &&
+          node.getAttribute(overlayAttribute) !== instanceId
+        ) {
+          node.remove();
+        }
+      }
+    }
+  }
+
+  function removeStaleOverlayHosts() {
+    for (const child of document.documentElement.children) {
+      if (
+        child.hasAttribute(overlayAttribute) &&
+        child.getAttribute(overlayAttribute) !== instanceId
+      ) {
+        child.remove();
+      }
+    }
+  }
+
+  function teardown() {
+    if (!active) {
+      return;
+    }
+    active = false;
+    document.removeEventListener(activationEventName, handleContentScriptActivate, true);
+    document.removeEventListener("mousedown", handleMouseDown, true);
+    document.removeEventListener("mouseup", handleMouseUp, true);
+    window.removeEventListener("scroll", repositionOverlay, true);
+    window.removeEventListener("resize", repositionOverlay);
+    window.removeEventListener("pagehide", cancelTranslation);
+    staleOverlayObserver.disconnect();
+    try {
+      chrome.storage.onChanged.removeListener(handleStorageChange);
+    } catch (error) {
+      console.debug("Failed to remove translation storage listener", error);
+    }
+    closeOverlay();
   }
 
   function handleStorageChange(changes, areaName) {
