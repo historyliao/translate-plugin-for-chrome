@@ -1,8 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "AI Selection Translator",
+  "name": "Daily Translate - AI 划词翻译",
+  "short_name": "Daily Translate",
   "version": "1.0.0",
-  "description": "Translate selected text into your chosen language with an OpenAI-compatible API.",
+  "description": "Simple, open-source AI selection translator for Chrome. Use any OpenAI-compatible API and your own model.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "permissions": [
     "scripting",
     "storage"
@@ -14,7 +21,13 @@
     "service_worker": "background/service-worker.js"
   },
   "action": {
-    "default_title": "AI Selection Translator",
+    "default_title": "每日翻译",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    },
     "default_popup": "popup/popup.html"
   },
   "options_page": "options/options.html",

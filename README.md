@@ -1,4 +1,6 @@
-# translate-plugin-for-chrome
+# Daily Translate（每日翻译）
+
+选中即译，模型由你。
 
 一个简单、开放、可自定义模型的 AI 划词翻译 Chrome 插件。选中网页中的文字，即可通过你自己的 OpenAI-compatible API 实时翻译成指定的目标语言。
 

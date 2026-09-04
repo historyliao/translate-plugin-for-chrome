@@ -3,12 +3,18 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>AI 划词翻译</title>
+    <title>每日翻译</title>
     <link rel="stylesheet" href="popup.css">
   </head>
   <body>
     <main class="popup">
-      <h1>AI 划词翻译</h1>
+      <header class="brand">
+        <img class="brand-icon" src="../icons/icon-48.png" alt="">
+        <div>
+          <h1>每日翻译</h1>
+          <p>选中即译，模型由你</p>
+        </div>
+      </header>
       <div class="tabs" role="tablist" aria-label="控制面板">
         <button id="control-tab" class="tab active" type="button" role="tab" aria-selected="true" aria-controls="control-panel" data-panel="control-panel">控制</button>
         <button id="monitor-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="monitor-panel" data-panel="monitor-panel">Token</button>

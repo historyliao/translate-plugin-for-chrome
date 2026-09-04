@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">Daily Translate</title>
+  <defs>
+    <linearGradient id="background" x1="16" y1="12" x2="112" y2="116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#4f46e5"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="96" rx="24" fill="url(#background)"/>
+  <path d="M82 95 111 119 113 117 105 93Z" fill="url(#background)"/>
+  <rect x="34" y="31" width="60" height="15" rx="7.5" fill="#fff"/>
+  <rect x="56.5" y="31" width="15" height="55" rx="7.5" fill="#fff"/>
+</svg>
