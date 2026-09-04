@@ -764,7 +764,7 @@ async function updateActionState(translationEnabled) {
       color: translationEnabled ? "#16a34a" : "#6b7280"
     }),
     chrome.action.setTitle({
-      title: translationEnabled ? "翻译已开启" : "翻译已关闭"
+      title: translationEnabled ? "每日翻译：已开启" : "每日翻译：已关闭"
     })
   ]);
 }
