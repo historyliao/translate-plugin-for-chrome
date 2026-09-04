@@ -310,6 +310,16 @@ button:disabled {
   gap: 8px;
 }
 
+.latency-help {
+  margin: 10px 0 0;
+  padding: 8px 9px;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
 .result-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

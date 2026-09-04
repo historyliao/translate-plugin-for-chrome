@@ -371,7 +371,7 @@ function renderLatencyTargets(entries, samples) {
     results.textContent = `成功 ${formatTokens(aggregate.successCount)} · 失败 ${formatTokens(aggregate.failureCount)} · 超时 ${formatTokens(aggregate.timeoutCount)} · 取消 ${formatTokens(aggregate.canceledCount)}`;
     const delays = document.createElement("p");
     delays.className = "latency-detail";
-    delays.textContent = `TTFB ${formatDuration(getAverageDuration(aggregate.ttfb))} · TTFT ${formatDuration(getAverageDuration(aggregate.ttft))} · 总耗时 ${formatDuration(getAverageDuration(aggregate.duration))}`;
+    delays.textContent = `TTFB ${formatDuration(getAverageDuration(aggregate.ttfb))} · TTFT ${formatDuration(getAverageDuration(aggregate.ttft))} · 平均完成耗时 ${formatDuration(getAverageDuration(aggregate.duration))}`;
     const targetSamples = samples.filter((sample) => sample.targetKey === targetKey);
     const percentiles = document.createElement("p");
     percentiles.className = "latency-detail";
@@ -396,7 +396,7 @@ function renderLatencyDaily(entries) {
     results.textContent = `成功 ${formatTokens(aggregate.successCount)} · 失败 ${formatTokens(aggregate.failureCount)} · 超时 ${formatTokens(aggregate.timeoutCount)} · 取消 ${formatTokens(aggregate.canceledCount)}`;
     const delays = document.createElement("p");
     delays.className = "latency-detail";
-    delays.textContent = `TTFB ${formatDuration(getAverageDuration(aggregate.ttfb))} · TTFT ${formatDuration(getAverageDuration(aggregate.ttft))} · 总耗时 ${formatDuration(getAverageDuration(aggregate.duration))}`;
+    delays.textContent = `TTFB ${formatDuration(getAverageDuration(aggregate.ttfb))} · TTFT ${formatDuration(getAverageDuration(aggregate.ttft))} · 平均完成耗时 ${formatDuration(getAverageDuration(aggregate.duration))}`;
 
     item.append(heading, results, delays);
     latencyDailyList.appendChild(item);

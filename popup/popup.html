@@ -72,7 +72,7 @@
             <strong id="latency-history-success">0</strong>
           </article>
           <article class="metric-card today-card">
-            <h2>平均总耗时</h2>
+            <h2>历史成功请求平均完成耗时</h2>
             <strong id="latency-history-average">--</strong>
           </article>
           <article class="metric-card percentile-card">
@@ -84,6 +84,7 @@
             <strong id="latency-history-p95">--</strong>
           </article>
         </div>
+        <p class="latency-help">完成耗时：从发起 API 请求到完整译文接收完成。P50 表示 50% 的成功请求不超过该耗时，P95 表示 95% 的成功请求不超过该耗时。基于最近最多 500 次成功请求。</p>
 
         <section class="data-section" aria-labelledby="latency-today-title">
           <h2 id="latency-today-title">今日请求结果</h2>
