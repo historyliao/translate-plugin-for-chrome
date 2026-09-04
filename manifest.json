@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "English to Chinese Translator",
+  "name": "AI Selection Translator",
   "version": "1.0.0",
-  "description": "Translate selected English text into Chinese with an OpenAI-compatible API.",
+  "description": "Translate selected text into your chosen language with an OpenAI-compatible API.",
   "permissions": [
     "scripting",
     "storage"
@@ -14,7 +14,7 @@
     "service_worker": "background/service-worker.js"
   },
   "action": {
-    "default_title": "English to Chinese Translator",
+    "default_title": "AI Selection Translator",
     "default_popup": "popup/popup.html"
   },
   "options_page": "options/options.html",

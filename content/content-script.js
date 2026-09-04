@@ -61,7 +61,7 @@
 
     const selection = window.getSelection();
     const text = selection?.toString().trim() || "";
-    if (!text || !/[A-Za-z]/.test(text) || !selection?.rangeCount) {
+    if (!text || !/\p{L}/u.test(text) || !selection?.rangeCount) {
       return;
     }
 
