@@ -114,7 +114,7 @@ button:focus-visible {
   color: #6b7280;
 }
 
-.language-row {
+.setting-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -122,11 +122,11 @@ button:focus-visible {
   padding: 14px 0 0;
 }
 
-.language-row label {
+.setting-row label {
   font-weight: 600;
 }
 
-.language-row select {
+.setting-row select {
   width: 150px;
   height: 34px;
   padding: 0 9px;
@@ -137,12 +137,12 @@ button:focus-visible {
   font: inherit;
 }
 
-.language-row select:focus-visible {
+.setting-row select:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
 
-.language-row select:disabled {
+.setting-row select:disabled {
   cursor: wait;
   opacity: 0.6;
 }

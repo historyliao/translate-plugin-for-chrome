@@ -25,7 +25,7 @@
       <section id="control-panel" class="tab-panel" role="tabpanel" aria-labelledby="control-tab">
         <div class="toggle-row">
           <div>
-            <label for="translation-enabled">自动翻译</label>
+            <label for="translation-enabled">开启翻译</label>
             <p id="translation-status" class="translation-status" aria-live="polite"></p>
           </div>
           <label class="switch">
@@ -33,7 +33,14 @@
             <span class="slider"></span>
           </label>
         </div>
-        <div class="language-row">
+        <div class="setting-row">
+          <label for="translation-mode">翻译模式</label>
+          <select id="translation-mode" disabled>
+            <option value="selection">划词翻译</option>
+            <option value="viewport">滑动窗口翻译</option>
+          </select>
+        </div>
+        <div class="setting-row">
           <label for="target-language">目标语言</label>
           <select id="target-language" disabled>
             <option value="zh-CN">简体中文</option>
