@@ -13,10 +13,12 @@ const EMPTY_LATENCY_AGGREGATE = {
   duration: { count: 0, totalMs: 0, minMs: 0, maxMs: 0 }
 };
 const DEFAULT_TARGET_LANGUAGE = "zh-CN";
+const DEFAULT_TRANSLATION_MODE = "selection";
 const TARGET_LANGUAGES = new Set([
   "zh-CN", "zh-TW", "en", "ja", "ko", "fr", "de",
   "es", "pt", "it", "ru", "ar", "hi"
 ]);
+const TRANSLATION_MODES = new Set(["selection", "viewport"]);
 const numberFormatter = new Intl.NumberFormat("zh-CN");
 const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
   month: "2-digit",
@@ -31,6 +33,7 @@ const tabButtons = Array.from(document.querySelectorAll(".tab"));
 const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
 const translationEnabledInput = document.querySelector("#translation-enabled");
 const translationStatus = document.querySelector("#translation-status");
+const translationModeInput = document.querySelector("#translation-mode");
 const targetLanguageInput = document.querySelector("#target-language");
 const openOptionsButton = document.querySelector("#open-options");
 const resetTokenUsageButton = document.querySelector("#reset-token-usage");
@@ -51,6 +54,7 @@ const latencyDailyEmpty = document.querySelector("#latency-daily-empty");
 const runtimeLogsList = document.querySelector("#runtime-logs");
 const logsEmpty = document.querySelector("#logs-empty");
 let translationEnabled = true;
+let translationMode = DEFAULT_TRANSLATION_MODE;
 let targetLanguage = DEFAULT_TARGET_LANGUAGE;
 let tokenUsage = null;
 let latencyMetrics = null;
@@ -81,6 +85,27 @@ translationEnabledInput.addEventListener("change", async () => {
     errorMessage.textContent = "无法保存翻译状态，请重试";
   } finally {
     translationEnabledInput.disabled = false;
+  }
+});
+
+translationModeInput.addEventListener("change", async () => {
+  const previousTranslationMode = translationMode;
+  const nextTranslationMode = getTranslationMode(translationModeInput.value);
+  translationModeInput.disabled = true;
+  errorMessage.textContent = "";
+
+  try {
+    await chrome.storage.local.set({ translationMode: nextTranslationMode });
+    translationMode = nextTranslationMode;
+    renderTranslationMode();
+  } catch (error) {
+    console.error("Failed to save translation mode", error);
+    reportRuntimeLog("settings_write_failed");
+    translationMode = previousTranslationMode;
+    renderTranslationMode();
+    errorMessage.textContent = "无法保存翻译模式，请重试";
+  } finally {
+    translationModeInput.disabled = false;
   }
 });
 
@@ -194,6 +219,10 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     translationEnabled = changes.translationEnabled.newValue !== false;
     renderTranslationState();
   }
+  if (changes.translationMode) {
+    translationMode = getTranslationMode(changes.translationMode.newValue);
+    renderTranslationMode();
+  }
   if (changes.targetLanguage) {
     targetLanguage = getTargetLanguage(changes.targetLanguage.newValue);
     renderTargetLanguage();
@@ -218,12 +247,14 @@ async function loadPopupData() {
   try {
     const settings = await chrome.storage.local.get([
       "translationEnabled",
+      "translationMode",
       "targetLanguage",
       "tokenUsage",
       "latencyMetrics",
       "runtimeLogs"
     ]);
     translationEnabled = settings.translationEnabled !== false;
+    translationMode = getTranslationMode(settings.translationMode);
     targetLanguage = getTargetLanguage(settings.targetLanguage);
     tokenUsage = settings.tokenUsage || null;
     latencyMetrics = settings.latencyMetrics || null;
@@ -234,11 +265,13 @@ async function loadPopupData() {
     errorMessage.textContent = "无法读取控制面板数据，请重试";
   }
   renderTranslationState();
+  renderTranslationMode();
   renderTargetLanguage();
   renderTokenUsage();
   renderLatencyMetrics();
   renderLogs();
   translationEnabledInput.disabled = false;
+  translationModeInput.disabled = false;
   targetLanguageInput.disabled = false;
 }
 
@@ -262,6 +295,14 @@ function renderTranslationState() {
 
 function renderTargetLanguage() {
   targetLanguageInput.value = targetLanguage;
+}
+
+function renderTranslationMode() {
+  translationModeInput.value = translationMode;
+}
+
+function getTranslationMode(value) {
+  return TRANSLATION_MODES.has(value) ? value : DEFAULT_TRANSLATION_MODE;
 }
 
 function getTargetLanguage(value) {
